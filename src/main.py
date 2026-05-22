@@ -3,12 +3,14 @@ from .database import engine, Base
 from .models import Account, Transaction
 from .controllers.accounts import router as account_router
 from .controllers.transactions import router as transaction_router
+from .controllers.auth import router as auth_router
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Bank API")
 app.include_router(account_router, prefix="/api/v1")
 app.include_router(transaction_router, prefix="/api/v1")
+app.include_router(auth_router, prefix="/api/v1")
 
 
 @app.get("/health")
