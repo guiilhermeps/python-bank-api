@@ -1,18 +1,38 @@
-from fastapi import APIRouter
-import sqlite3
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from ..database import get_db
+from ..models.account import Account
+from ..models.transaction import Transaction
+from ..schemas.transactions import TransactionRequest, TransactionResponse
 
-router = APIRouter()
-conn = sqlite3.connect('bank.db')
+router = APIRouter(prefix="/transactions", tags=["Transactions"])
 
-@router.post("/transaction/withdrawal")
-def create_withdrawal_transaction():
-    pass
 
-@router.post("/transaction/deposit")
-def create_deposit_transaction():
-    pass
+@router.post("/deposit", response_model=TransactionResponse, status_code=201)
+def create_deposit(request: TransactionRequest, db: Session = Depends(get_db)):
+    account = db.query(Account).filter(Account.id == request.account_id).first()
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
 
-@router.get("/transactions")
-def get_transactions():
-    pass
+    account.balance += request.amount
+    transaction = Transaction(account_id=account.id, type="deposit", amount=request.amount)
+    db.add(transaction)
+    db.commit()
+    db.refresh(transaction)
+    return transaction
 
+
+@router.post("/withdrawal", response_model=TransactionResponse, status_code=201)
+def create_withdrawal(request: TransactionRequest, db: Session = Depends(get_db)):
+    account = db.query(Account).filter(Account.id == request.account_id).first()
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+    if account.balance < request.amount:
+        raise HTTPException(status_code=400, detail="Insufficient funds")
+
+    account.balance -= request.amount
+    transaction = Transaction(account_id=account.id, type="withdrawal", amount=request.amount)
+    db.add(transaction)
+    db.commit()
+    db.refresh(transaction)
+    return transaction
